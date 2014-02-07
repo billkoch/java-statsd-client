@@ -44,14 +44,7 @@ public final class NonBlockingStatsDClient implements StatsDClient {
     private final DatagramSocket clientSocket;
     private final StatsDClientErrorHandler handler;
 
-    private final ExecutorService executor = Executors.newSingleThreadExecutor(new ThreadFactory() {
-        final ThreadFactory delegate = Executors.defaultThreadFactory();
-        @Override public Thread newThread(Runnable r) {
-            Thread result = delegate.newThread(r);
-            result.setName("StatsD-" + result.getName());
-            return result;
-        }
-    });
+    private final ExecutorService executor;
 
     /**
      * Create a new StatsD client communicating with a StatsD instance on the
@@ -99,17 +92,30 @@ public final class NonBlockingStatsDClient implements StatsDClient {
      *     if the client could not be started
      */
     public NonBlockingStatsDClient(String prefix, String hostname, int port, StatsDClientErrorHandler errorHandler) throws StatsDClientException {
-        this.prefix = prefix;
-        this.handler = errorHandler;
-        
-        try {
-            this.clientSocket = new DatagramSocket();
-            this.clientSocket.connect(new InetSocketAddress(hostname, port));
-        } catch (Exception e) {
-            throw new StatsDClientException("Failed to start StatsD client", e);
-        }
+    	this(prefix, hostname, port, errorHandler, Executors.newSingleThreadExecutor(new ThreadFactory() {
+	        final ThreadFactory delegate = Executors.defaultThreadFactory();
+	        @Override public Thread newThread(Runnable r) {
+	            Thread result = delegate.newThread(r);
+	            result.setName("StatsD-" + result.getName());
+	            return result;
+	        }
+	    }));
     }
 
+    public NonBlockingStatsDClient(String prefix, String hostname, int port, StatsDClientErrorHandler errorHandler, ExecutorService exectuor) throws StatsDClientException {
+    	this.prefix = prefix;
+    	this.handler = errorHandler;
+    	this.executor = exectuor;
+    	
+    	try {
+    		this.clientSocket = new DatagramSocket();
+    		this.clientSocket.connect(new InetSocketAddress(hostname, port));
+    	} catch (Exception e) {
+    		throw new StatsDClientException("Failed to start StatsD client", e);
+    	}
+    	
+    }
+    
     /**
      * Cleanly shut down this StatsD client. This method may throw an exception if
      * the socket cannot be closed.
